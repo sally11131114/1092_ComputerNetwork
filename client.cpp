@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <iostream>
 #include <ctime>
+#include <fcntl.h>
 using namespace std;
 
 #define MYIP "10.1.0.177"
@@ -80,6 +81,7 @@ int main(){
     cout << "=====Complete the three-way handshake=====" << endl << endl;
     
     while(1){
+        char buf[1000];
         string request, buf_tmp;
         cout << "Request (eg. MATH ADD 3 6 or DNS google.com or FILE 1.mp4 or exit):" << endl;
         getline(cin, request);
@@ -94,7 +96,8 @@ int main(){
             perror("Client request sendto");
             exit(1);
         }
-        buf_tmp=strtok(send.data, " ");
+        strcpy(buf, send.data);
+        buf_tmp=strtok(buf, " ");
         if(buf_tmp=="FILE"){
             file(sockfd, send);
             continue;
@@ -116,27 +119,62 @@ int main(){
 void file(int sockfd, segment send){
     segment recv;
     string filename;
-    int seq_tmp, ack_tmp, numbyte;
+    const char s[2] = " ";
+    int seq_tmp, ack_tmp, numbyte, sum=0;
     seq_tmp = send.seq;
     ack_tmp = send.ack;
-    filename=strtok(send.data, " ");
-    filename=strtok(NULL, " ");
-    filename="client_recv/"+filename
+    filename=strtok(send.data, s);
+    filename=strtok(NULL, s);
+    filename="client_recv/"+filename;
     int file = open(filename.c_str(), O_WRONLY|O_TRUNC|O_CREAT, S_IRWXU);
-
+    //receive filesize
     memset(&recv, 0, sizeof(recv));
     if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&serverinfo, &server_addrlen) == -1)){
         perror("Client recvfrom");
         exit(1);
     }
     int size = recv.ack;  //size=total filesize
+    //FILE first seq!!!!
     memset(&send, 0, sizeof(send));
     send.seq=seq_tmp;
-    send.ack=0;
+    send.ack=ack_tmp;
     if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
         perror("Client request sendto");
         exit(1);
     }
-    
+    while(size-sum>=MSS){
+        memset(&recv, 0, sizeof(recv));
+        if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&serverinfo, &server_addrlen) == -1)){
+            perror("Client recvfrom");
+            exit(1);
+        }
+        write(file, recv.data, MSS);
+        sum += MSS;
+        memset(&send, 0, sizeof(send));
+        send.seq=recv.seq;
+        send.ack=recv.ack+1;
+        if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
+            perror("Client request sendto");
+            exit(1);
+        }
+    }
+    memset(&recv, 0, sizeof(recv));
+    if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&serverinfo, &server_addrlen) == -1)){
+        perror("Client recvfrom");
+        exit(1);
+    }
+    cout << "size=" << size << endl;
+    cout << "sum=" << sum << endl;
+    cout << "size-sum=" << size-sum << endl;
+    write(file, recv.data, size-sum);
+    memset(&send, 0, sizeof(send));
+    send.FIN=1;
+    send.seq=recv.seq;
+    send.ack=recv.ack+1;
+    if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
+        perror("Client request sendto");
+        exit(1);
+    }
+
 
 }

@@ -13,6 +13,7 @@
 #include <ctime>
 #include <cmath>
 #include <fstream>
+#include <fcntl.h>
 using namespace std;
 
 #define SRVPORT "2500"
@@ -30,11 +31,12 @@ void math(int sockfd, segment recv);
 void dns(int sockfd, segment recv);
 void file(int sockfd, segment recv);
 struct addrinfo cliinfo;
+socklen_t cli_addrlen;
 
 int main(){
     int sockfd, rv, numbyte;
     struct addrinfo temp,  *srvinfo;
-    socklen_t cli_addrlen;
+    cli_addrlen = sizeof(cliinfo);
     segment send, recv;
     srand(time(NULL));
 
@@ -192,7 +194,7 @@ void file(int sockfd, segment recv){
     char buf[1000];
     string buf_tmp, filename;
     segment send;
-    int numbyte;
+    int numbyte, size_tmp=0;
     const char s[2] = " ";
     strcpy(buf, recv.data);
     buf_tmp=strtok(buf, s); //buf_tmp = FILE
@@ -203,23 +205,25 @@ void file(int sockfd, segment recv){
     int size = f.tellg();
     //send filesize
     memset(&send, 0, sizeof(send));
-    send.seq=recv.ack;
     send.ack=size;
     if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&cliinfo, sizeof(cliinfo))) == -1 ){
         perror("Server request sendto");
         exit(1);
     }
     //sendfile
-    int file = open(filename.c_str())
+    int file = open(filename.c_str(),O_RDONLY);
     while(1){
+        //server first receive
         memset(&recv, 0, sizeof(recv));
         if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&cliinfo, &cli_addrlen) == -1)){
             perror("Server recvfrom");
             exit(1);
         }
         if(recv.FIN == 1) break;
-        lseek(file, recv.ack, SEEK_SET);
-        recv.ack+=send.seq;
+        lseek(file, size_tmp, SEEK_SET);
+        size_tmp+=MSS;
+        //recv.ack+=send.seq;
+        //server first send
         memset(&send, 0, sizeof(send));
         send.seq=recv.ack;
         send.ack=recv.seq+1;
