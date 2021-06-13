@@ -93,7 +93,7 @@ int main(){
             perror("Server recvfrom");
             exit(1);
         }
-        cout << "Receive a packet(Request) from client" << endl;
+        cout << "Receive a file(Request) from client" << endl;
         find(sockfd, recv);
     }
 }
@@ -150,6 +150,7 @@ void math(int sockfd, segment recv){
         b=strtok(NULL, s);
         ans="The answer of "+buf_tmp+" "+a+" "+b+" is "+to_string(pow(stof(a), stof(b)));
     }
+    cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
     cout << "Send a packet(Request MATH) to client " << endl << endl;
     segment send;
     memset(&send, 0, sizeof(send));
@@ -181,6 +182,7 @@ void dns(int sockfd, segment recv){
     struct sockaddr_in *ipv4 = (struct sockaddr_in *)res->ai_addr;
     inet_ntop(res->ai_family, &(ipv4->sin_addr), ans, sizeof ans);
     ans_tmp="The ipv4 of "+buf_tmp+" is "+ans;
+    cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
     cout << "Send a packet(Request DNS) to client " << endl << endl;
     segment send;
     memset(&send, 0, sizeof(send));
@@ -219,6 +221,7 @@ void file(int sockfd, segment recv){
             perror("Server recvfrom");
             exit(1);
         }
+        cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
         if(recv.FIN == 1) break;
         lseek(file, size_tmp, SEEK_SET);
         size_tmp+=MSS;
@@ -226,7 +229,7 @@ void file(int sockfd, segment recv){
         //server first send
         memset(&send, 0, sizeof(send));
         send.seq=recv.ack;
-        send.ack=recv.seq+1;
+        send.ack=recv.seq+MSS;
         read(file, send.data, MSS);
         if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&cliinfo, sizeof(cliinfo))) == -1 ){
             perror("Server request sendto");
