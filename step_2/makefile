@@ -4,6 +4,5 @@ all:client.cpp server.cpp
 
 clean:
 	rm -f server client
-
 test:
 	./server

@@ -16,7 +16,7 @@
 #include <fcntl.h>
 using namespace std;
 
-#define SRVPORT "2500"
+#define SRVPORT 2500
 #define MSS 1000
 
 typedef struct TCP_segment{
@@ -38,6 +38,8 @@ int main(){
     struct addrinfo temp,  *srvinfo;
     cli_addrlen = sizeof(cliinfo);
     segment send, recv;
+    pid_t pid;
+    int port_temp=SRVPORT;
     srand(time(NULL));
 
     memset(&temp, 0, sizeof(temp));
@@ -45,7 +47,7 @@ int main(){
     temp.ai_socktype = SOCK_DGRAM;
     temp.ai_flags = AI_PASSIVE;
 
-    if(getaddrinfo(NULL, SRVPORT, &temp, &srvinfo)){
+    if(getaddrinfo(NULL, to_string(SRVPORT).c_str(), &temp, &srvinfo)){
         perror("getaddrinfo");
         exit(1);
     }
@@ -58,43 +60,67 @@ int main(){
         perror("Server bind");
         exit(1);
     }
-
-    cout << "=====Start the three-way handshake=====" << endl;
-    freeaddrinfo(srvinfo);
-    memset(&cliinfo, 0, sizeof(cliinfo));
-    memset(&recv, 0, sizeof(recv));
-    if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&cliinfo, &cli_addrlen) == -1)){
-        perror("Server recvfrom");
-        exit(1);
-    }
-    cout << "Receive a packet(SYN) from client" << endl;
-    cout << "         Receive a packet (seq_num = " << recv.seq << ")" << endl;
-    cout << "Send a packet(SYN/ACK) to client " << endl;
-    memset(&send, 0, sizeof(send));
-    send.SYN=1;
-    send.seq=rand()%10000;
-    send.ack=recv.seq+1;
-    if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&cliinfo, sizeof(cliinfo))) == -1 ){
-        perror("Server sendto");
-        exit(1);
-    }
-    memset(&recv, 0, sizeof(recv));
-    if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&cliinfo, &cli_addrlen) == -1)){
-        perror("Server recvfrom");
-        exit(1);
-    }
-    cout << "Receive a packet(ACK) from client" << endl;
-    cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
-    cout << "=====Complete the three-way handshake=====" << endl << endl;
-
     while(1){
+        memset(&cliinfo, 0, sizeof(cliinfo));
         memset(&recv, 0, sizeof(recv));
         if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&cliinfo, &cli_addrlen) == -1)){
             perror("Server recvfrom");
             exit(1);
         }
-        cout << "Receive a file(Request) from client" << endl;
-        find(sockfd, recv);
+        port_temp++;
+        pid = fork();
+        //child process
+        if(pid == 0){
+            memset(&temp, 0, sizeof(temp));
+            temp.ai_family = AF_INET;
+            temp.ai_socktype = SOCK_DGRAM;
+            temp.ai_flags = AI_PASSIVE;
+
+            if(getaddrinfo(NULL, to_string(port_temp).c_str(), &temp, &srvinfo)){
+                perror("getaddrinfo");
+                exit(1);
+            }
+            if((sockfd = socket(srvinfo->ai_family, srvinfo->ai_socktype, srvinfo->ai_protocol)) == -1){
+                perror("Server socket");
+                exit(1);
+            }
+            if(bind(sockfd, srvinfo->ai_addr, srvinfo->ai_addrlen)==-1){
+                close(sockfd);
+                perror("Server bind");
+                exit(1);
+            }
+            cout << "=====Start the three-way handshake=====" << endl;
+            cout << "Receive a packet(SYN) from client" << endl;
+            cout << "         Receive a packet (seq_num = " << recv.seq << ")" << endl;
+            cout << "Send a packet(SYN/ACK) to client " << endl;
+            memset(&send, 0, sizeof(send));
+            send.SYN=1;
+            send.seq=rand()%10000;
+            send.ack=recv.seq+1;
+            if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&cliinfo, sizeof(cliinfo))) == -1 ){
+                perror("Server sendto");
+                exit(1);
+            }
+            memset(&recv, 0, sizeof(recv));
+            if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&cliinfo, &cli_addrlen) == -1)){
+                perror("Server recvfrom");
+                exit(1);
+            }
+            cout << "Receive a packet(ACK) from client" << endl;
+            cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
+            cout << "=====Complete the three-way handshake=====" << endl << endl;
+
+            while(1){
+                memset(&recv, 0, sizeof(recv));
+                if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&cliinfo, &cli_addrlen) == -1)){
+                    perror("Server recvfrom");
+                    exit(1);
+                }
+                cout << "Receive a file(Request) from client" << endl;
+                find(sockfd, recv);
+            }
+            return 0;
+        }
     }
 }
 void find(int sockfd, segment recv){
@@ -154,6 +180,8 @@ void math(int sockfd, segment recv){
     cout << "Send a packet(Request MATH) to client " << endl << endl;
     segment send;
     memset(&send, 0, sizeof(send));
+    send.seq=recv.ack;
+    send.ack=recv.seq+1;
     strcpy(send.data, ans.c_str());
     if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&cliinfo, sizeof(cliinfo))) == -1 ){
         perror("Server request(MATH) sendto");

@@ -86,7 +86,7 @@ int main(){
         cout << "Request (eg. MATH ADD 3 6 or DNS google.com or FILE 1.mp4 or exit):" << endl;
         getline(cin, request);
         memset(&send, 0, sizeof(send));
-        send.seq=recv.ack;
+        send.seq=recv.ack+1;
         send.ack=recv.seq+1;
         strcpy(send.data, request.c_str());
         if(request=="exit")
@@ -138,8 +138,8 @@ void file(int sockfd, segment send){
     int size = recv.ack;  //size=total filesize
     //FILE first send!!!!
     memset(&send, 0, sizeof(send));
-    send.seq=seq_tmp+1;
-    send.ack=ack_tmp+1;
+    send.seq=seq_tmp;
+    send.ack=ack_tmp;
     if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
         perror("Client request sendto");
         exit(1);
