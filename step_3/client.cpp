@@ -29,7 +29,7 @@ typedef struct TCP_segment{
 struct addrinfo serverinfo;
 socklen_t server_addrlen;
 
-void file(int sockfd, segment send);
+segment file(int sockfd, segment send);
 
 int main(){
     int sockfd, rv, numbyte;
@@ -81,36 +81,50 @@ int main(){
     cout << "=====Complete the three-way handshake=====" << endl << endl;
     
     while(1){
-        char buf[1000];
+        char buf[5], req[1000];
+        char *r;
         string request, buf_tmp;
-        cout << "Request (eg. MATH ADD 3 6 or DNS google.com or FILE 1.mp4 or exit):" << endl;
+        cout << "Request (eg. MATH ADD 3 6,DNS google.com,FILE 1.mp4 or exit):" << endl;
         getline(cin, request);
-        memset(&send, 0, sizeof(send));
-        send.seq=recv.ack;
-        send.ack=recv.seq+1;
-        strcpy(send.data, request.c_str());
+        
         if(request=="exit")
             break;
-        //cout << "Send a packet(Request) to server" << endl;
-        if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
-            perror("Client request sendto");
-            exit(1);
+        strcpy(req, request.c_str());
+        //memset(&r, 0, sizeof(r));
+        r = strtok(req, ",");         //MATH ADD 3 6
+        while(r != NULL){
+            memset(&send, 0, sizeof(send));
+            send.seq=recv.ack;
+            send.ack=recv.seq+1;
+            strcpy(send.data, r);
+            cout << "send.data=" << send.data << endl;
+            if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
+                perror("Client request sendto");
+                exit(1);
+            }
+            memset(&buf, 0, sizeof(buf));
+            memset(&buf_tmp, 0, sizeof(buf_tmp));
+            strncpy(buf, send.data, 4);
+            buf[4]='\0';
+            buf_tmp=buf;
+            if(buf_tmp=="FILE"){
+                cout << "Receive a file(Request) from " << MYIP << " :" << SRVPORT << endl;
+                memset(&recv, 0, sizeof(recv));
+                recv = file(sockfd, send);
+            }
+            else{
+                memset(&recv, 0, sizeof(recv));
+                if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&serverinfo, &server_addrlen) == -1)){
+                    perror("Client recvfrom");
+                    exit(1);
+                }
+                cout << "Receive a file(Request) from " << MYIP << " :" << SRVPORT << endl;
+                cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
+                cout << "\t" << recv.data << endl << endl;
+            }
+
+            r = strtok(NULL, ",");     //FILE 1.mp4,DNS google.com
         }
-        strcpy(buf, send.data);
-        buf_tmp=strtok(buf, " ");
-        if(buf_tmp=="FILE"){
-            cout << "Receive a file(Request) from " << MYIP << " :" << SRVPORT << endl;
-            file(sockfd, send);
-            continue;
-        }
-        memset(&recv, 0, sizeof(recv));
-        if((numbyte = recvfrom(sockfd, &recv, sizeof(recv), 0, (struct sockaddr *)&serverinfo, &server_addrlen) == -1)){
-            perror("Client recvfrom");
-            exit(1);
-        }
-        cout << "Receive a file(Request) from " << MYIP << " :" << SRVPORT << endl;
-        cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
-        cout << "\t" << recv.data << endl << endl;
     }
 }
 //MATH SQUARE_ROOT 9
@@ -118,15 +132,16 @@ int main(){
 //MATH ADD 4 6
 //MATH MINUS 6 7
 
-void file(int sockfd, segment send){
+segment file(int sockfd, segment send){
     segment recv;
     string filename;
     const char s[2] = " ";
-    int seq_tmp, ack_tmp, numbyte, sum=0;
+    int i, seq_tmp, ack_tmp, numbyte, sum=0;
     seq_tmp = send.seq;
     ack_tmp = send.ack;
-    filename=strtok(send.data, s);
-    filename=strtok(NULL, s);
+    for(i=5;i<=9;i++) filename[i-5]=send.data[i];
+    // filename=strtok(send.data, s);
+    // filename=strtok(NULL, s);
     filename="client_recv/"+filename;
     int file = open(filename.c_str(), O_WRONLY|O_TRUNC|O_CREAT, S_IRWXU);
     //receive filesize
@@ -166,16 +181,19 @@ void file(int sockfd, segment send){
         perror("Client recvfrom");
         exit(1);
     }
-    cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
+    cout << "    HF     Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
     write(file, recv.data, size-sum);
     memset(&send, 0, sizeof(send));
     send.FIN=1;
     send.seq=recv.ack;
-    send.ack=recv.seq+(size-sum)+1;
+    send.ack=recv.seq+MSS;
     if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
         perror("Client request sendto");
         exit(1);
     }
+    recv.ack+=1;
+    recv.seq+=MSS;
+    return recv;
 
 
 }

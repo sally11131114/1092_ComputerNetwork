@@ -154,6 +154,8 @@ void math(int sockfd, segment recv){
     cout << "Send a packet(Request MATH) to client " << endl << endl;
     segment send;
     memset(&send, 0, sizeof(send));
+    send.seq=recv.ack;
+    send.ack=recv.seq+1;
     strcpy(send.data, ans.c_str());
     if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&cliinfo, sizeof(cliinfo))) == -1 ){
         perror("Server request(MATH) sendto");
@@ -186,6 +188,8 @@ void dns(int sockfd, segment recv){
     cout << "Send a packet(Request DNS) to client " << endl << endl;
     segment send;
     memset(&send, 0, sizeof(send));
+    send.seq=recv.ack;
+    send.ack=recv.seq+1;
     strcpy(send.data, ans_tmp.c_str());
     if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&cliinfo, sizeof(cliinfo))) == -1 ){
         perror("Server request(DNS) sendto");
