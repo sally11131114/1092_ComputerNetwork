@@ -32,14 +32,14 @@ void dns(int sockfd, segment recv);
 void file(int sockfd, segment recv);
 struct addrinfo cliinfo;
 socklen_t cli_addrlen;
-
+int port_temp;
 int main(){
     int sockfd, rv, numbyte;
     struct addrinfo temp,  *srvinfo;
     cli_addrlen = sizeof(cliinfo);
     segment send, recv;
     pid_t pid;
-    int port_temp=SRVPORT;
+    port_temp=SRVPORT;
     srand(time(NULL));
 
     memset(&temp, 0, sizeof(temp));
@@ -90,9 +90,9 @@ int main(){
                 exit(1);
             }
             cout << "=====Start the three-way handshake=====" << endl;
-            cout << "Receive a packet(SYN) from client" << endl;
+            cout << "Receive a packet(SYN) from client " << port_temp << endl;
             cout << "         Receive a packet (seq_num = " << recv.seq << ")" << endl;
-            cout << "Send a packet(SYN/ACK) to client " << endl;
+            cout << "Send a packet(SYN/ACK) to client " << port_temp << endl;
             memset(&send, 0, sizeof(send));
             send.SYN=1;
             send.seq=rand()%10000;
@@ -106,7 +106,7 @@ int main(){
                 perror("Server recvfrom");
                 exit(1);
             }
-            cout << "Receive a packet(ACK) from client" << endl;
+            cout << "Receive a packet(ACK) from client " << port_temp << endl;
             cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
             cout << "=====Complete the three-way handshake=====" << endl << endl;
 
@@ -116,7 +116,7 @@ int main(){
                     perror("Server recvfrom");
                     exit(1);
                 }
-                cout << "Receive a file(Request) from client" << endl;
+                cout << "Receive a file(Request) from client " << port_temp << endl;
                 find(sockfd, recv);
             }
             return 0;
@@ -177,7 +177,7 @@ void math(int sockfd, segment recv){
         ans="The answer of "+buf_tmp+" "+a+" "+b+" is "+to_string(pow(stof(a), stof(b)));
     }
     cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
-    cout << "Send a packet(Request MATH) to client " << endl << endl;
+    cout << "Send a packet(Request MATH) to client " << port_temp << endl << endl;
     segment send;
     memset(&send, 0, sizeof(send));
     send.seq=recv.ack;
@@ -211,7 +211,7 @@ void dns(int sockfd, segment recv){
     inet_ntop(res->ai_family, &(ipv4->sin_addr), ans, sizeof ans);
     ans_tmp="The ipv4 of "+buf_tmp+" is "+ans;
     cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
-    cout << "Send a packet(Request DNS) to client " << endl << endl;
+    cout << "Send a packet(Request DNS) to client " << port_temp << endl << endl;
     segment send;
     memset(&send, 0, sizeof(send));
     send.seq=recv.ack;

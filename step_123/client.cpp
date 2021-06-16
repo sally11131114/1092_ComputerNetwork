@@ -97,7 +97,6 @@ int main(){
             send.seq=recv.ack;
             send.ack=recv.seq+1;
             strcpy(send.data, r);
-            cout << "send.data=" << send.data << endl;
             if((numbyte = sendto(sockfd, &send, sizeof(send), 0, (struct sockaddr *)&serverinfo, sizeof(serverinfo))) == -1 ){
                 perror("Client request sendto");
                 exit(1);
@@ -123,7 +122,7 @@ int main(){
                 cout << "\t" << recv.data << endl << endl;
             }
 
-            r = strtok(NULL, ",");     //FILE 1.mp4,DNS google.com
+            r = strtok(NULL, ",");     //MATH SQUARE_ROOT 9,FILE 1.mp4,DNS google.com
         }
     }
 }
@@ -139,7 +138,7 @@ segment file(int sockfd, segment send){
     int i, seq_tmp, ack_tmp, numbyte, sum=0;
     seq_tmp = send.seq;
     ack_tmp = send.ack;
-    for(i=5;i<=9;i++) filename[i-5]=send.data[i];
+    for(i=5;i<=9;i++) filename+=send.data[i];
     // filename=strtok(send.data, s);
     // filename=strtok(NULL, s);
     filename="client_recv/"+filename;
@@ -181,7 +180,7 @@ segment file(int sockfd, segment send){
         perror("Client recvfrom");
         exit(1);
     }
-    cout << "    HF     Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
+    cout << "         Receive a packet (seq_num = " << recv.seq << ", ack_num = " << recv.ack << ")" << endl;
     write(file, recv.data, size-sum);
     memset(&send, 0, sizeof(send));
     send.FIN=1;
